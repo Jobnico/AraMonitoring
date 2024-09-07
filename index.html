@@ -523,7 +523,7 @@ function monitorStream(index, stream, alertSoundPath = 'default_alert_sound.mp3'
         let blackScreenDuration = 0;
         const alertDuration = 100; // 100 milliseconds
 
-        const alertSound = new Audio("./alert.mp3");
+        const alertSound = new Audio(alertSoundPath); // Use alertSoundPath argument
         alertSound.loop = true;
 
         const canvas = document.createElement('canvas');
@@ -623,46 +623,99 @@ function monitorStream(index, stream, alertSoundPath = 'default_alert_sound.mp3'
         logAlert('Stream has no audio track', index);  // Log no audio track alert
     }
 
-    // Function to update the bitrate status
+    // Function to update the bitrate status updated bitrate drops and stalls
     async function updateBitrateStatus() {
-        const pc = players[index] && players[index]._pc;  // Ensure we access the peer connection
-        if (pc) {
-            const stats = await pc.getStats();
-            //console.log('Stats Report:', stats);  // Log the entire stats object
+    const pc = players[index] && players[index]._pc;  // Ensure we access the peer connection
+    if (pc) {
+        const stats = await pc.getStats();
+        let foundInboundRTP = false;
+        stats.forEach(report => {
+            if (report.type === 'inbound-rtp' && report.mediaType === 'video') {
+                foundInboundRTP = true;
+                const bytesReceived = report.bytesReceived;
+                const now = report.timestamp;
     
-            let foundInboundRTP = false;
-            stats.forEach(report => {
-                if (report.type === 'inbound-rtp' && report.mediaType === 'video') {
-                    foundInboundRTP = true;  // Confirm that the right stats are being found
-                    const bytesReceived = report.bytesReceived;
-                    const now = report.timestamp;
-    
-                    if (lastBytesSent && lastTimestamp) {
-                        const bitrate = (bytesReceived - lastBytesSent) * 8 / ((now - lastTimestamp) / 1000); // Calculate bits per second
-                        bitrateStatus.textContent = `Bitrate: ${Math.round(bitrate / 1000)} kbps`; // No decimals in bitrate display // Update bitrate UI
-                        //console.log(`Bitrate for stream ${index}: ${(bitrate / 1000).toFixed(2)} kbps`);
+                if (lastBytesSent && lastTimestamp) {
+                    const bitrate = (bytesReceived - lastBytesSent) * 8 / ((now - lastTimestamp) / 1000); // bits per second
+                    bitrateStatus.textContent = `Bitrate: ${Math.round(bitrate / 1000)} kbps`;
+                    if (bitrate < 300000) {  // Low bitrate threshold
+                        alertText.textContent = 'Alert: Low Bitrate Detected!';
+                        alertText.classList.add('show');
+                        if (alertSound.paused) {
+                            alertSound.play();
+                            logAlert('Low Bitrate Detected', index);  // Log low bitrate
+                        }
                     }
-    
-                    lastBytesSent = bytesReceived;
-                    lastTimestamp = now;
                 }
-            });
-    
-            if (!foundInboundRTP) {
-                console.log("No inbound-rtp stats found for video");
+                lastBytesSent = bytesReceived;
+                lastTimestamp = now;
             }
-        } else {
-            console.log("No PeerConnection found for this stream.");
+        });
+        if (!foundInboundRTP) {
+            console.log("No inbound-rtp stats found for video");
         }
+    } else {
+        console.log("No PeerConnection found for this stream.");
     }
+}
+
     // Set an interval to update the bitrate status every second (1000 milliseconds)
     setInterval(updateBitrateStatus, 1000);
+
+    // Add error handling for video decoding Updated alerts
+    videoElement.onerror = (e) => {
+    const errorType = e.target.error ? e.target.error.code : 0;
+    let errorMessage;
+    switch (errorType) {
+        case 1:
+            errorMessage = 'Alert: Video Decoding Aborted!';
+            break;
+        case 2:
+            errorMessage = 'Alert: Network Error during Video Fetch!';
+            break;
+        case 3:
+            errorMessage = 'Alert: Decoding Error!';
+            break;
+        case 4:
+            errorMessage = 'Alert: Video Format Not Supported!';
+            break;
+        default:
+            errorMessage = 'Alert: Unknown Video Error!';
+    }
+    alertText.textContent = errorMessage;
+    alertText.classList.add('show');
+    if (alertSound.paused) {
+        alertSound.play();
+        logAlert(errorMessage, index);  // Log the specific error type
+    }
+    // added audio- video sync issue
+    videoElement.ontimeupdate = () => {
+    if (Math.abs(videoElement.currentTime - audioContext.currentTime) > 0.5) {
+        alertText.textContent = 'Alert: Audio-Video Sync Issue Detected!';
+        alertText.classList.add('show');
+        if (alertSound.paused) {
+            alertSound.play();
+            logAlert('Audio-Video Sync Issue', index);
+        }
+    }
+};
+};
+
+    // Add event listener for video decoding errors
+    videoElement.addEventListener('error', (e) => {
+        console.error('Video element error:', e);
+        alertText.textContent = 'Alert: Video Error Detected!';
+        alertText.classList.add('show');
+        if (alertSound.paused) {
+            alertSound.play(); // Play the alert sound if it's not already playing
+            logAlert('Video Error Detected', index);  // Video Error Detected alert
+        }
+    });
 
     videoElement.onpause = () => {
         checkStream();
     };
 }
-
 
 function checkStreamTracks(stream, index) {
     const audioTracks = stream.getAudioTracks();
