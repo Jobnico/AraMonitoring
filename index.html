@@ -638,7 +638,7 @@ function monitorStream(index, stream, alertSoundPath = 'default_alert_sound.mp3'
                 if (lastBytesSent && lastTimestamp) {
                     const bitrate = (bytesReceived - lastBytesSent) * 8 / ((now - lastTimestamp) / 1000); // bits per second
                     bitrateStatus.textContent = `Bitrate: ${Math.round(bitrate / 1000)} kbps`;
-                    if (bitrate < 300000) {  // Low bitrate threshold
+                    if (bitrate <= 100) {  // Low bitrate threshold Updated to 100 kbps below
                         alertText.textContent = 'Alert: Low Bitrate Detected!';
                         alertText.classList.add('show');
                         if (alertSound.paused) {
