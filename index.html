@@ -146,6 +146,7 @@
       font-size: 12px;
       height: 30px;
       margin: 0 5px;
+      width: 10em;
     }
 
     .alert-text {
@@ -221,9 +222,9 @@
         <label for="numRows">Rows:</label>
         <input type="number" id="numRows" class="form-control" min="1" value="2" style="width: 80px;">
         <label for="numCols">Columns:</label>
-        <input type="number" id="numCols" class="form-control" min="1" value="3" style="width: 80px;">
+        <input type="number" id="numCols" class="form-control" min="1" value="4" style="width: 80px;">
         <button id="setLayout" class="btn btn-primary">Set Layout</button>
-        <button onclick="downloadLogs()" class="btn btn-info">Error Logs</button>
+        <button onclick="downloadLogs()" class="btn btn-info">Monitoring Logs</button>
       </div>  
     </div>
     <div class="isp-info" id="ispInfo">
@@ -387,16 +388,18 @@ function createStreams(rows, cols) {
         appNameInput.type = 'text';
         appNameInput.placeholder = 'App Name';
         appNameInput.id = `appName${i}`;
+        appNameInput.value =`A2A`;
         controls.appendChild(appNameInput);
 
         const streamNameInput = document.createElement('input');
         streamNameInput.type = 'text';
         streamNameInput.placeholder = 'Stream Name';
         streamNameInput.id = `streamName${i}`;
+        streamNameInput.value =`Stream${i}-Pri`;
         controls.appendChild(streamNameInput);
 
         const secretKeyInput = document.createElement('input');
-        secretKeyInput.type = 'text';
+        secretKeyInput.type = 'password';
         secretKeyInput.placeholder = 'Secret Key';
         secretKeyInput.id = `secretKey${i}`;
         controls.appendChild(secretKeyInput);
@@ -414,6 +417,9 @@ function createStreams(rows, cols) {
         stopBtn.textContent = 'Stop';
         stopBtn.onclick = function() {
             stopStream(i);
+            alertText.classList.remove('show');
+            alertSound.pause();
+            alertSound.currentTime = 0;
         };
         controls.appendChild(stopBtn);
 
@@ -498,7 +504,7 @@ function stopStream(index) {
     }
 }
 
-function monitorStream(index, stream, alertSoundPath = 'default_alert_sound.mp3') {
+function monitorStream(index, stream, alertSoundPath = 'alert.mp3') {
     const videoElement = document.getElementById(`video${index}`);
     const streamBox = videoElement.closest('.stream-box');
     const alertText = streamBox.querySelector('.alert-text');
@@ -766,7 +772,7 @@ document.getElementById('setLayout').addEventListener('click', function() {
 });
 
 // Initialize with 2 rows and 3 columns
-createStreams(2, 3);
+createStreams(2, 4);
   </script>
 
   <!-- Bootstrap JS and dependencies -->
