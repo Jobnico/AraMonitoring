@@ -250,6 +250,7 @@
     fetchISPInfo();
 </script>
   <script>
+    let alertSounds = [];
     const alertSound = new Audio('alert.mp3'); // Ensure the path to your alert sound file is correct
     const alertThreshold = 50; // Set a threshold for audio levels
 
@@ -312,7 +313,9 @@ function triggerConnectionLossAlert(index) {
 
     alertText.textContent = 'Alert: Connection Lost!';
     alertText.classList.add('show');
-    alertSound.play();
+    if (alertSounds[index] && alertSounds[index].paused) {
+        alertSounds[index].play();
+    }
     logAlert('Connection Lost', index);  // Log the connection loss alert
 }
 
@@ -322,10 +325,13 @@ function stopConnectionLossAlert(index) {
     const alertText = streamBox.querySelector('.alert-text');
 
     alertText.classList.remove('show');
-    alertSound.pause();
-    alertSound.currentTime = 0; // Reset the sound to the start
+    if (alertSounds[index]) {
+        alertSounds[index].pause();
+        alertSounds[index].currentTime = 0; // Reset the sound to the start
+    }
     logAlert('Connection Resumed', index);  // Log the connection resume alert
 }
+
 
 function createStreams(rows, cols) {
     const container = document.getElementById('streamsContainer');
@@ -438,6 +444,7 @@ let audioContexts = [];
 let analysers = [];
 
 function playStream(index) {
+    stopStream(index);
     if (players[index]) {
         players[index].close(); // Close existing player if any
     }
@@ -480,15 +487,23 @@ function stopStream(index) {
         players[index] = null;
     }
 
-    const alertText = document.querySelector(`#video${index} ~ .alert-text`);
+    const videoElement = document.getElementById(`video${index}`);
+    const streamBox = videoElement.closest('.stream-box');
+    const alertText = streamBox.querySelector('.alert-text');
+
     if (alertText) {
         alertText.classList.remove('show');
     }
 
     // Stop the alert sound if it's playing
-    if (!alertSound.paused) {
-        alertSound.pause();
-        alertSound.currentTime = 0; // Reset the sound to the beginning
+    if (alertSounds[index] && !alertSounds[index].paused) {
+        alertSounds[index].pause();
+        alertSounds[index].currentTime = 0; // Reset the sound to the beginning
+    }
+
+    // Remove the alert sound from the array
+    if (alertSounds[index]) {
+        alertSounds[index] = null;
     }
 
     // Stop monitoring
@@ -502,7 +517,14 @@ function stopStream(index) {
         audioContexts[index].close();
         audioContexts[index] = null;
     }
+
+    // Remove event listeners
+    if (videoElement) {
+        videoElement.onerror = null;
+        videoElement.ontimeupdate = null;
+    }
 }
+
 
 function monitorStream(index, stream, alertSoundPath = 'alert.mp3') {
     const videoElement = document.getElementById(`video${index}`);
@@ -529,8 +551,9 @@ function monitorStream(index, stream, alertSoundPath = 'alert.mp3') {
         let blackScreenDuration = 0;
         const alertDuration = 100; // 100 milliseconds
 
-        const alertSound = new Audio(alertSoundPath); // Use alertSoundPath argument
-        alertSound.loop = true;
+        alertSounds[index] = new Audio(alertSoundPath); // Store in alertSounds array
+        alertSounds[index].loop = true;
+
 
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -576,8 +599,8 @@ function monitorStream(index, stream, alertSoundPath = 'alert.mp3') {
             if (noAudioDuration >= alertDuration) {
                 alertText.textContent = 'Alert: No Audio Detected!';
                 alertText.classList.add('show');
-                if (alertSound.paused) {
-                    alertSound.play(); // Play the alert sound if it's not already playing
+                if (alertSounds[index].paused) {
+                    alertSounds[index].play(); // Play the alert sound if it's not already playing
                     logAlert('No Audio Detected', index);  // No Audio Detected! alert
                 }
             } else {
@@ -690,9 +713,9 @@ function monitorStream(index, stream, alertSoundPath = 'alert.mp3') {
     }
     alertText.textContent = errorMessage;
     alertText.classList.add('show');
-    if (alertSound.paused) {
-        alertSound.play();
-        logAlert(errorMessage, index);  // Log the specific error type
+    if (alertSounds[index].paused) {
+        alertSounds[index].play();
+        logAlert(errorMessage, index);
     }
     // added audio- video sync issue
     videoElement.ontimeupdate = () => {
